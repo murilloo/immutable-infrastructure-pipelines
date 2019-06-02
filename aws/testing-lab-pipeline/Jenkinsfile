@@ -1,0 +1,47 @@
+pipeline {
+
+    agent any
+
+    environment {
+	    SSH_KEY = '/var/lib/jenkins/.ssh/key/murillo-lab-spinnaker.pem'
+	    SSH_USER = 'ec2-user'
+	    SSH_HOST = '3.89.245.121'
+    }
+	
+    stages {
+
+       stage ('Clean up workspace') {
+                steps {
+                    deleteDir()
+            }
+        }
+    
+       stage ('Checkout') {
+            steps {
+                    checkout scm 
+              }
+        }
+
+       stage ('Getting current list of AMIs available') {
+            steps {
+                sh '''
+		/var/lib/jenkins/.local/bin/aws ec2 describe-instances --query 'Reservations[].Instances[].[Tags[?Key==`Name`] | [0].Value, PrivateIpAddress, State.Name]' --output text | grep running |  grep -v "Packer" | grep -v "None" | grep -v "10.100.10.101" | grep -v "10.100.10.175" | grep -v ^murill  > nodes.txt
+		'''
+	      }
+        }
+        
+
+	stage ('Inspect: Nginx configuration check') {
+            steps {
+	  	ansiColor('xterm') {
+                 	script {
+			    sh "scp -i ${SSH_KEY} testing-lab-nginx.rb ${SSH_USER}@${SSH_HOST}:~/nginx/controls/"
+		            sh "scp -i ${SSH_KEY} nodes.txt ${SSH_USER}@${SSH_HOST}:~"
+			    sh "scp -i ${SSH_KEY} inspec.sh ${SSH_USER}@${SSH_HOST}:~"
+			    sh "ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${SSH_USER}@${SSH_HOST} sh inspec.sh "
+                    }
+	        }
+	    }
+	}
+     }
+}

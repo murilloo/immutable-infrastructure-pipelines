@@ -1,0 +1,87 @@
+pipeline {
+
+    agent any
+
+    stages {
+
+       stage ('Clean up workspace') {
+                steps {
+                    deleteDir()
+            }
+        }
+    
+       stage ('Checkout') {
+            steps {
+                    checkout scm 
+              }
+        }
+
+       stage ('Building app') {
+            steps {
+                sh "sh genhtml.sh > index.html"
+            }
+        }
+        
+       stage ('Packing app') {
+            steps {
+                sh "rpmdev-setuptree"
+                // Changing app version to build number on spec file
+                sh "sed -i 's/BUILD_NUMBER/${BUILD_NUMBER}/g' ./frontend-lab-app.spec"
+                sh "rpmbuild -ba frontend-lab-app.spec"
+            }
+        }
+   
+       stage ('Testing RPM app package') {
+            steps {
+                sh "rpm -ivh --test /var/lib/jenkins/rpmbuild/RPMS/x86_64/frontend-lab-app-${BUILD_NUMBER}-1.x86_64.rpm"
+            }
+        }
+        
+        stage ('Publishing artifact') {
+            steps {
+                script {
+                    if (PUBLISH == "true") {
+                        sh "/var/lib/jenkins/.local/bin/aws s3 sync /var/lib/jenkins/rpmbuild/RPMS/x86_64 s3://murillo-labs-repo/rpm/"
+                    }
+                }
+            }
+        }
+        
+        stage ('Prepare to deploy') {
+            steps {
+                script { 
+                    if (SPINNAKER == "true") {
+                        sh '''
+                        # get current ami id
+                        export AMI_ID=`/var/lib/jenkins/.local/bin/aws ec2 describe-images --owner 706642936346 --query  'Images[*].[ImageId,Name]' --output text | grep -v oscap | grep frontend-lab-baseimage | awk '{ print $1 }'`
+                        # change source ami using var of previous step
+                        sed -i "s/SOURCE_AMI/$AMI_ID/g" ./frontend-base-ami.json
+                        # change ami frontend name to use build number
+                        sed -i "s/BUILD_NUMBER/$BUILD_NUMBER/g" ./frontend-base-ami.json
+                        # Validates Packer template
+                        /usr/local/bin/packer validate frontend-base-ami.json
+                        # sync with S3 bucket
+                        /var/lib/jenkins/.local/bin/aws s3 sync . s3://murillo-labs-repo/baseimage/ --exclude "*" --include "frontend-base-ami.json"
+                        sleep 60
+                        '''
+                    }
+                   if (DOCKER == "true") { 
+                        sh "docker build . -t murill00/frontend-lab-app"
+                        sh "docker push murill00/frontend-lab-app:latest"
+                        sh "docker rmi murill00/frontend-lab-app -f"    
+                   }
+                }    
+            }
+        }
+        
+        stage ('Deploy') {
+            steps {
+                script { 
+                    if (DEPLOY == "true") {
+                            sh "echo Deploy to ...."
+                    }
+                }
+            }
+        }        
+    }
+}

@@ -1,0 +1,48 @@
+{
+    "variables": {
+        "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
+        "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
+        "region":         "us-east-1"
+    },
+  "builders": [
+        {
+            "access_key": "{{user `aws_access_key`}}",
+            "ami_name": "backend-lab-baseimage",
+            "instance_type": "t2.micro",
+            "region": "us-east-1",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "source_ami": "ami-6871a115",
+            "ssh_username": "ec2-user",
+            "type": "amazon-ebs"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "file",
+            "source": "./files/nginx.repo",
+            "destination": "/tmp/nginx.repo"
+        },
+	{
+            "type": "file",
+            "source": "./files/lab.repo",
+            "destination": "/tmp/lab.repo"
+        },
+	{
+            "type": "file",
+            "source": "./files/nginx.conf",
+            "destination": "/tmp/nginx.conf"
+        },
+        {
+            "type": "shell",
+            "inline":[
+		"sudo cp /tmp/nginx.repo /etc/yum.repos.d/",
+		"sudo cp /tmp/lab.repo /etc/yum.repos.d/",
+		"sudo yum update -y",
+		"sudo yum install nginx -y",
+		"sudo rm /etc/nginx/conf.d/default.conf",
+		"sudo cp /tmp/nginx.conf /etc/nginx/conf.d/nginx.conf",
+		"sudo systemctl enable nginx"
+            ]
+        }
+    ]
+}

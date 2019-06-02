@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-lab-app
+  namespace: murillo-labs-openshift
+spec:
+  selector:
+    matchLabels:
+      app: backend-lab-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: backend-lab-app
+    spec:
+      containers:
+        - name: backend-lab-app
+          image: docker.io/murill00/backend-lab-app:latest
+          ports:
+            - containerPort: 8080

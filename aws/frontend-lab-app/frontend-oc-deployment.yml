@@ -1,0 +1,21 @@
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-lab-app
+  namespace: murillo-labs-openshift
+spec:
+  selector:
+    matchLabels:
+      app: frontend-lab-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: frontend-lab-app
+    spec:
+      containers:
+        - name: frontend-lab-app
+          image: docker.io/murill00/frontend-lab-app:latest
+          ports:
+            - containerPort: 8080

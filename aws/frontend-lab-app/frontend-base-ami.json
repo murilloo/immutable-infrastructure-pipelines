@@ -1,0 +1,30 @@
+{
+    "variables": {
+        "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
+        "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
+        "region":         "us-east-1"
+    },
+    "builders": [
+        {
+            "access_key": "{{user `aws_access_key`}}",
+            "ami_name": "frontend-lab-app-BUILD_NUMBER",
+            "instance_type": "t2.micro",
+            "region": "us-east-1",
+            "secret_key": "{{user `aws_secret_key`}}",
+  	     "source_ami": "SOURCE_AMI",
+            "ssh_username": "ec2-user",
+            "type": "amazon-ebs"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline":[
+                "sudo yum clean all",
+                "sudo yum update -y",
+                "sudo yum install frontend-lab-app.x86_64 -y",
+		"sudo systemctl start nginx"
+            ]
+	}
+    ]
+}

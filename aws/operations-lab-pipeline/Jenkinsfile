@@ -1,0 +1,50 @@
+pipeline {
+
+    agent any
+
+    stages {
+
+       stage ('Clean up workspace') {
+                steps {
+                    deleteDir()
+            }
+        }
+    
+       stage ('Checkout') {
+            steps {
+                    checkout scm 
+              }
+        }
+
+       stage ('Getting current instances state') {
+            steps {
+                sh '''
+                /var/lib/jenkins/.local/bin/aws ec2 describe-instances \
+                --query 'Reservations[].Instances[].[Tags[?Key==`Name`].Value|[0],InstanceId, Tags[?Key==Name].Value, State.Name]' \
+                --output text > output.txt
+		'''
+            }
+        }
+        
+       stage ('Run deletion/listing process') {
+            steps {
+                script {
+                    if (ERASE == 'true')
+                    {
+                            sh '''
+                            set +x 
+                            for x in `cat output.txt | grep running| grep -v ^muril | awk '{ print $2 }'`
+                            do 
+                              echo "Terminating EC2 - $x"
+			      /var/lib/jenkins/.local/bin/aws ec2 terminate-instances --instance-ids $x
+                            done
+                            sh '''
+                    }
+                       else { 
+                              sh "cat output.txt"
+                     }
+                }
+            }
+        }
+    }
+}

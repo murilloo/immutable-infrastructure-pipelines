@@ -1,0 +1,41 @@
+{
+    "variables": {
+        "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
+        "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
+        "region":         "us-east-1"
+    },
+    "builders": [
+        {
+            "access_key": "{{user `aws_access_key`}}",
+            "ami_name": "SOURCE_NAME-oscap-{{ timestamp }}",
+            "instance_type": "t2.micro",
+            "region": "us-east-1",
+            "secret_key": "{{user `aws_secret_key`}}",
+  	    "source_ami": "SOURCE_AMI",
+            "ssh_username": "ec2-user",
+            "type": "amazon-ebs"
+        }
+    ],
+    "provisioners": [
+     {
+            "type": "file",
+            "source": "./files/aws.zip",
+            "destination": "/tmp/aws.zip"
+        },
+        {
+            "type": "shell",
+            "inline":[
+                "sudo yum clean all",
+                "sudo yum update -y",
+                "sudo sudo yum install unzip openscap-scanner -y",
+		"sudo curl https://s3.amazonaws.com/aws-cli/awscli-bundle.zip -o /tmp/awscli-bundle.zip",
+		"sudo unzip /tmp/awscli-bundle.zip -d /tmp",
+		"sudo /tmp/awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws",
+		"sudo unzip /tmp/aws.zip -d /root",
+		"sudo curl https://www.redhat.com/security/data/oval/Red_Hat_Enterprise_Linux_7.xml -o /tmp/Red_Hat_Enterprise_Linux_7.xml",
+                "sudo oscap oval eval --results /tmp/rhsa-results-oval.xml --report /tmp/SOURCE_NAME-{{ timestamp }}-oscap-report.html /tmp/Red_Hat_Enterprise_Linux_7.xml",    
+		"sudo /usr/local/bin/aws s3 cp /tmp/SOURCE_NAME-{{ timestamp }}-oscap-report.html  s3://murillo-labs-repo/oscap/"
+            ]
+	}
+    ]
+}

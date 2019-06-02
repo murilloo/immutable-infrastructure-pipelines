@@ -1,0 +1,12 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: frontend-lab-app
+  namespace: murillo-labs-openshift
+spec:
+  path: /
+  to:
+    kind: Service
+    name: frontend-lab-app
+  port:
+    targetPort: 80

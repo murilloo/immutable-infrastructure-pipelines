@@ -1,0 +1,68 @@
+pipeline {
+
+    agent any
+
+    stages {
+
+       stage ('Clean up workspace') {
+                steps {
+                    deleteDir()
+            }
+        }
+    
+       stage ('Checkout') {
+            steps {
+                    checkout scm 
+              }
+        }
+
+       stage ('Getting current list of AMIs available') {
+            steps {
+                sh '''
+                /var/lib/jenkins/.local/bin/aws ec2 describe-images \
+                --owner 706642936346 --query  'Images[*].[ImageId,Name]' --output text > output.txt
+	        '''
+            }
+        }
+        
+
+	stage ('Run OpenSCAP into the AMIs') {
+            steps {
+	      ansiColor('xterm') {
+                script {
+                    if (AMI == 'true')
+                    {
+                            sh '''
+                            set +x 
+                            for x in `cat output.txt | grep -v oscap | grep -v ^lab | grep baseimage | awk '{ print $1 }'`
+                            do 
+                              echo "Inspection on AMI baseimage - $x"
+			      y=`grep $x output.txt | awk '{ print $2 }'`
+	 		       cat security-base-ami.json.template | sed -e "s/SOURCE_NAME/$y/g" -e "s/SOURCE_AMI/$x/g" > security-base-ami.json
+			      /usr/local/bin/packer validate security-base-ami.json
+			      /usr/local/bin/packer build security-base-ami.json
+                            done
+                            sh '''
+                    }
+		    
+		    if (RUNNING == 'true') 
+			{
+					
+			    sh '''
+                            set +x 
+                            for x in `cat output.txt | grep -v oscap | grep -v baseimage| egrep "front|back" | awk '{ print $1 }' `
+                            do 
+                              echo "Inspection on running AMI - $x"
+			      y=`grep $x output.txt | awk '{ print $2 }'`
+			      cat security-base-ami.json.template | sed -e "s/SOURCE_NAME/$y/g" -e "s/SOURCE_AMI/$x/g" > security-base-ami.json
+			      /usr/local/bin/packer validate security-base-ami.json
+			      /usr/local/bin/packer build security-base-ami.json
+                            done
+                            sh '''
+			}
+		    }
+		}
+	    }
+       }
+    }
+}

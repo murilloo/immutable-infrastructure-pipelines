@@ -1,0 +1,6 @@
+
+[labrepo]
+name=Lab repository
+baseurl=http://repo.murillo-labs.com
+enabled=1
+gpgcheck=0

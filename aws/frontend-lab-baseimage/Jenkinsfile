@@ -1,0 +1,66 @@
+pipeline {
+
+    agent any
+     
+    stages {
+    
+        stage ('Clean up workspace') {
+                    steps {
+                        deleteDir()
+                }
+            }
+        
+         stage ('Checkout') {
+                steps {
+                        checkout scm 
+                }
+            }
+          stage ('Validate') {
+                    steps {
+                        script { 
+                              if (AMI == "true") {
+                                    ansiColor('xterm') {
+                                          sh "/usr/local/bin/packer validate frontend-lab-baseimage.json"
+                                    }
+                              }
+                              else if (DOCKER == "true") {
+                                sh "echo Dockerfile checking..."
+                                sh "md5sum Dockerfile"
+                              }
+                        }
+                 }
+          }
+          stage ('Preparation') {
+                steps {
+                    script {
+                         if (AMI == "true") {
+                                sh '''#!/bin/bash 
+                                export AMI_ID=`/var/lib/jenkins/.local/bin/aws ec2 describe-images --owner 706642936346 --query  'Images[*].[ImageId,Name]' --output text | grep -v oscap | grep frontend-lab-baseimage | awk '{ print $1 }'`
+                                /var/lib/jenkins/.local/bin/aws ec2 deregister-image --image-id $AMI_ID
+                                sleep 20 
+                                '''
+                         }
+                        else if (DOCKER == "true") {
+                            sh "echo Docker Un/Tag"
+                        }
+                    }
+                }
+            }
+            stage ('Build') {
+                    steps {
+                        script {
+                            if (AMI == "true") {
+                                    ansiColor('xterm') {
+                                        sh "/usr/local/bin/packer build frontend-lab-baseimage.json"
+                                    }
+                            }
+                            else if (DOCKER == "true") {
+                                sh "docker build . -t murill00/frontend-lab-baseimage"
+                                sh "docker push murill00/frontend-lab-baseimage:latest"
+                                sh "docker rmi murill00/frontend-lab-baseimage -f"    
+                            }
+                       }
+                  }
+            }
+       }
+  }
